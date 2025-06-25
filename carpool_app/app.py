@@ -3,11 +3,16 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import calendar
+from whitenoise import WhiteNoise # WhiteNoiseをインポート
 
 # ベースディレクトリの絶対パスを取得
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__)
+
+# ★★★ WhiteNoiseで静的ファイル(CSS)を配信できるようにする ★★★
+app.wsgi_app = WhiteNoise(app.wsgi_app)
+
 
 # RenderのPostgreSQLデータベースのURLを環境変数から取得
 # なければ、ローカルのSQLiteをフォールバックとして使用
