@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+
+{% block title %}管理ページ{% endblock %}
+
+{% block content %}
+    <h1>管理ページ</h1>
+
+    <h2>送迎可能な日時を追加</h2>
+    <form action="{{ url_for('add_slot') }}" method="post">
+        <div>
+            <label for="slot_time">日時:</label>
+            <input type="datetime-local" id="slot_time" name="slot_time" required>
+        </div>
+        <div>
+            <label for="departure_point">出発地:</label>
+            <select name="departure_point" id="departure_point" required>
+                <option value="京大発">京大発</option>
+                <option value="合宿所発">合宿所発</option>
+            </select>
+        </div>
+        <button type="submit">追加</button>
+    </form>
+
+    <h2>登録済みの日時一覧</h2>
+    <ul>
+        {% for slot in slots %}
+            <li>
+                <div class="slot-details">
+                    <span>
+                        <span class="departure-tag">{{ slot.departure_point }}</span>
+                        {{ slot.slot_time.strftime('%Y年%m月%d日 %H:%M') }} 
+                        <strong>({{ slot.reservations|length }}/4人)</strong>
+                    </span>
+                    <form action="{{ url_for('delete_slot', slot_id=slot.id) }}" method="post" onsubmit="return confirm('この時間枠と関連するすべての予約を削除します。よろしいですか？');">
+                        <button type="submit" class="cancel-btn">削除</button>
+                    </form>
+                </div>
+                {% if slot.reservations %}
+                <div class="reservation-info">
+                    予約者: {{ slot.reservations|map(attribute='user_name')|join(', ') }}
+                </div>
+                {% endif %}
+            </li>
+        {% else %}
+            <li>登録されている日時はありません。</li>
+        {% endfor %}
+    </ul>
+{% endblock %} 
