@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+
+{% block title %}予約カレンダー{% endblock %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/calendar.css') }}">
+{% endblock %}
+
+{% block content %}
+    <div class="calendar-container">
+        <div class="calendar-header">
+            <a href="{{ url_for('index', year=prev_month.year, month=prev_month.month) }}">&lt; 前の月</a>
+            <h2>{{ year }}年 {{ month }}月</h2>
+            <a href="{{ url_for('index', year=next_month.year, month=next_month.month) }}">次の月 &gt;</a>
+        </div>
+
+        <div class="calendar-grid">
+            {% for day_name in ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] %}
+                <div class="calendar-header">{{ day_name }}</div>
+            {% endfor %}
+
+            {% for week in month_days %}
+                {% for day_date in week %}
+                    <div class="calendar-day {% if day_date.month != month %}other-month{% endif %} {% if day_date == today %}today{% endif %}">
+                        <div class="day-number">{{ day_date.day }}</div>
+                        {% set day_slots = slots | selectattr('slot_time', 'ge', day_date) | selectattr('slot_time', 'lt', day_date + timedelta(days=1)) | list %}
+                        {% for slot in day_slots %}
+                            <div class="slot available-{{ slot.available_slots > 0 }}" data-slot-id="{{ slot.id }}" data-slot-time="{{ slot.slot_time.strftime('%Y-%m-%d %H:%M') }}" onclick="showModal(this)">
+                                <span class="slot-time">{{ slot.slot_time.strftime('%H:%M') }}</span>
+                                <span class="slot-availability">
+                                    <i class="fas fa-users"></i> {{ slot.available_slots }}/{{ slot.capacity }}
+                                </span>
+                                <span class="slot-departure departure-{{ slot.departure_point | lower | replace(' ', '-') }}">{{ slot.departure_point }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+
+        <div class="mobile-calendar-list">
+            <ul>
+                {% set found_slot = namespace(value=false) %}
+                {% set weekdays = ["月", "火", "水", "木", "金", "土", "日"] %}
+                {% for day in range(1, num_days + 1) %}
+                    {% if slots_by_day[day] %}
+                        {% set found_slot.value = true %}
+                        {% set day_of_week = weekdays[(first_weekday + day - 1) % 7] %}
+                        <li class="day-header {% if day_of_week == '日' %}sunday{% elif day_of_week == '土' %}saturday{% endif %}">
+                            <h3>
+                                {{ year }}年{{ month }}月{{ day }}日 ({{ day_of_week }})
+                            </h3>
+                        </li>
+                        {% for slot in slots_by_day[day] %}
+                            <li class="slot-item">
+                                <form action="{{ url_for('reserve') }}" method="post">
+                                    <div class="slot-details">
+                                        <span class="departure-tag">{{ slot.departure_point }}</span>
+                                        <span class="slot-time">{{ slot.slot_time.strftime('%H:%M') }}</span>
+                                        <span class="slot-capacity">残り{{ 4 - slot.reservations|length }}</span>
+                                    </div>
+                                    <input type="hidden" name="slot_id" value="{{ slot.id }}">
+                                    <input type="text" name="user_name" placeholder="名前" required>
+                                    <button type="submit">予約</button>
+                                </form>
+                            </li>
+                        {% endfor %}
+                    {% endif %}
+                {% endfor %}
+                {% if not found_slot.value %}
+                    <li class="no-slots">この月には予約可能な送迎がありません。</li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+{% endblock %} 
