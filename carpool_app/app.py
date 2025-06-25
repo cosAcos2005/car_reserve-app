@@ -24,6 +24,11 @@ else:
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your_super_secret_key' # flashメッセージのために必要
 
+# timedeltaをテンプレートで使えるようにする
+@app.context_processor
+def inject_timedelta():
+    return dict(timedelta=timedelta)
+
 db = SQLAlchemy(app)
 
 # --- モデル定義 ---

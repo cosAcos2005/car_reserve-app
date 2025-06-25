@@ -23,8 +23,8 @@
                 {% for day_date in week %}
                     <div class="calendar-day {% if day_date.month != month %}other-month{% endif %} {% if day_date == today %}today{% endif %}">
                         <div class="day-number">{{ day_date.day }}</div>
-                        {% set day_slots = slots | selectattr('slot_time', 'ge', day_date) | selectattr('slot_time', 'lt', day_date + timedelta(days=1)) | list %}
-                        {% for slot in day_slots %}
+                        {% set day_str = day_date.strftime('%Y-%m-%d') %}
+                        {% for slot in slots if slot.slot_time.strftime('%Y-%m-%d') == day_str %}
                             <div class="slot available-{{ slot.available_slots > 0 }}" data-slot-id="{{ slot.id }}" data-slot-time="{{ slot.slot_time.strftime('%Y-%m-%d %H:%M') }}" onclick="showModal(this)">
                                 <span class="slot-time">{{ slot.slot_time.strftime('%H:%M') }}</span>
                                 <span class="slot-availability">
