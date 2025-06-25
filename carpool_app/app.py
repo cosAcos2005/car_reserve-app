@@ -9,20 +9,17 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__)
 
-# ---ここからが修正箇所---
-# Renderでの公開（Production）とローカルでの開発（Development）でデータベースのパスを切り替える
-# Renderのサーバーには 'RENDER' という環境変数が自動で設定されるため、それを目印にします
-if os.environ.get('RENDER'):
-    # Render上では、永続ディスクのパス '/data' にデータベースファイルを作成します
-    data_dir = '/data'
-    db_path = os.path.join(data_dir, 'carpool.db')
+# RenderのPostgreSQLデータベースのURLを環境変数から取得
+# なければ、ローカルのSQLiteをフォールバックとして使用
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    # RenderのPostgreSQL URLは 'postgres://' で始まるが、
+    # SQLAlchemyは 'postgresql://' を要求するため置換する
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url.replace("postgres://", "postgresql://")
 else:
-    # ローカル開発環境では、これまで通りプロジェクトフォルダ内にデータベースファイルを作成します
+    # ローカル開発用のSQLite設定
     db_path = os.path.join(basedir, 'carpool.db')
-
-# データベースの接続設定
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
-# ---ここまでが修正箇所---
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your_super_secret_key' # flashメッセージのために必要
@@ -174,8 +171,12 @@ def delete_slot(slot_id):
     flash('送迎枠が削除されました。', 'success')
     return redirect(url_for('admin'))
 
-if __name__ == '__main__':
+# アプリケーションの実行部
+def create_tables():
     with app.app_context():
         db.create_all()
+
+if __name__ == '__main__':
+    create_tables()
     # 開発サーバー起動時のポートを5001に変更
     app.run(debug=True, host='0.0.0.0', port=5001)
