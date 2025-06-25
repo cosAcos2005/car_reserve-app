@@ -24,11 +24,6 @@ else:
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your_super_secret_key' # flashメッセージのために必要
 
-# timedeltaをテンプレートで使えるようにする
-@app.context_processor
-def inject_timedelta():
-    return dict(timedelta=timedelta)
-
 db = SQLAlchemy(app)
 
 # --- モデル定義 ---
@@ -131,7 +126,7 @@ def my_reservations():
 @app.route('/cancel_reservation/<int:reservation_id>', methods=['POST'])
 def cancel_reservation(reservation_id):
     reservation_to_delete = Reservation.query.get_or_404(reservation_id)
-    
+
     # DetachedInstanceErrorを防ぐために、削除前に情報を変数に保存
     user_name = reservation_to_delete.user_name
     slot_time_str = reservation_to_delete.slot.slot_time.strftime('%Y-%m-%d %H:%M')
@@ -143,7 +138,7 @@ def cancel_reservation(reservation_id):
     except Exception as e:
         db.session.rollback()
         flash(f'キャンセル処理中にエラーが発生しました: {e}', 'error')
-        
+
     return redirect(url_for('my_reservations'))
 
 # --- 管理者向けページ ---
@@ -157,7 +152,7 @@ def admin():
 def add_slot():
     slot_time_str = request.form.get('slot_time')
     departure_point = request.form.get('departure_point')
-    
+
     if slot_time_str:
         slot_time = datetime.strptime(slot_time_str, '%Y-%m-%dT%H:%M')
         new_slot = Slot(slot_time=slot_time, departure_point=departure_point)

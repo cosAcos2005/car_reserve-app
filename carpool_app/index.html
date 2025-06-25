@@ -1,76 +1,101 @@
 {% extends "layout.html" %}
-
-{% block title %}予約カレンダー{% endblock %}
-
-{% block head %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/calendar.css') }}">
-{% endblock %}
+{% block title %}予約{% endblock %}
 
 {% block content %}
+<div class="container">
+    <h1 class="main-title">送迎予約</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
     <div class="calendar-container">
-        <div class="calendar-header">
-            <a href="{{ url_for('index', year=prev_month.year, month=prev_month.month) }}">&lt; 前の月</a>
+        <div class="calendar-nav">
+            <a href="{{ url_for('index', year=prev_year, month=prev_month) }}">&lt; 前の月</a>
             <h2>{{ year }}年 {{ month }}月</h2>
-            <a href="{{ url_for('index', year=next_month.year, month=next_month.month) }}">次の月 &gt;</a>
+            <a href="{{ url_for('index', year=next_year, month=next_month) }}">次の月 &gt;</a>
         </div>
 
-        <div class="calendar-grid">
-            {% for day_name in ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] %}
-                <div class="calendar-header">{{ day_name }}</div>
-            {% endfor %}
-
-            {% for week in month_days %}
-                {% for day_date in week %}
-                    <div class="calendar-day {% if day_date.month != month %}other-month{% endif %} {% if day_date == today %}today{% endif %}">
-                        <div class="day-number">{{ day_date.day }}</div>
-                        {% set day_str = day_date.strftime('%Y-%m-%d') %}
-                        {% for slot in slots if slot.slot_time.strftime('%Y-%m-%d') == day_str %}
-                            <div class="slot available-{{ slot.available_slots > 0 }}" data-slot-id="{{ slot.id }}" data-slot-time="{{ slot.slot_time.strftime('%Y-%m-%d %H:%M') }}" onclick="showModal(this)">
-                                <span class="slot-time">{{ slot.slot_time.strftime('%H:%M') }}</span>
-                                <span class="slot-availability">
-                                    <i class="fas fa-users"></i> {{ slot.available_slots }}/{{ slot.capacity }}
-                                </span>
-                                <span class="slot-departure departure-{{ slot.departure_point | lower | replace(' ', '-') }}">{{ slot.departure_point }}</span>
-                            </div>
-                        {% endfor %}
-                    </div>
+        <!-- PC用カレンダー表示 -->
+        <div class="desktop-calendar">
+            <div class="calendar-grid">
+                {% for day_name in ["日", "月", "火", "水", "木", "金", "土"] %}
+                    <div class="calendar-header">{{ day_name }}</div>
                 {% endfor %}
-            {% endfor %}
+
+                {% for week in month_days %}
+                    {% for day_date in week %}
+                        <div class="calendar-day {% if day_date.month != month %}other-month{% endif %} {% if day_date == today %}today{% endif %}">
+                            <div class="day-number">{{ day_date.day }}</div>
+                            {% set day_str = day_date.strftime('%Y-%m-%d') %}
+                            {% for slot in slots if slot.slot_time.strftime('%Y-%m-%d') == day_str %}
+                                <div class="slot available-{{ slot.available_slots > 0 }}" data-slot-id="{{ slot.id }}" data-slot-time="{{ slot.slot_time.strftime('%Y-%m-%d %H:%M') }}" onclick="showModal(this)">
+                                    <span class="slot-time">{{ slot.slot_time.strftime('%H:%M') }}</span>
+                                    <span class="slot-availability">
+                                        <i class="fas fa-users"></i> {{ slot.available_slots }}/{{ slot.capacity }}
+                                    </span>
+                                    <span class="slot-departure departure-{{ slot.departure_point | lower | replace(' ', '-') }}">{{ slot.departure_point }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
         </div>
 
-        <div class="mobile-calendar-list">
-            <ul>
-                {% set found_slot = namespace(value=false) %}
-                {% set weekdays = ["月", "火", "水", "木", "金", "土", "日"] %}
-                {% for day in range(1, num_days + 1) %}
-                    {% if slots_by_day[day] %}
-                        {% set found_slot.value = true %}
-                        {% set day_of_week = weekdays[(first_weekday + day - 1) % 7] %}
-                        <li class="day-header {% if day_of_week == '日' %}sunday{% elif day_of_week == '土' %}saturday{% endif %}">
-                            <h3>
-                                {{ year }}年{{ month }}月{{ day }}日 ({{ day_of_week }})
-                            </h3>
-                        </li>
-                        {% for slot in slots_by_day[day] %}
-                            <li class="slot-item">
-                                <form action="{{ url_for('reserve') }}" method="post">
-                                    <div class="slot-details">
-                                        <span class="departure-tag">{{ slot.departure_point }}</span>
-                                        <span class="slot-time">{{ slot.slot_time.strftime('%H:%M') }}</span>
-                                        <span class="slot-capacity">残り{{ 4 - slot.reservations|length }}</span>
-                                    </div>
-                                    <input type="hidden" name="slot_id" value="{{ slot.id }}">
-                                    <input type="text" name="user_name" placeholder="名前" required>
-                                    <button type="submit">予約</button>
-                                </form>
-                            </li>
-                        {% endfor %}
+        <!-- スマホ用リスト表示 -->
+        <div class="mobile-list">
+             <h3>今後の予約可能枠</h3>
+             {% if list_slots %}
+                {% for slot in list_slots %}
+                    {% if slot.available_slots > 0 %}
+                    <div class="slot-list-item" data-slot-id="{{ slot.id }}" data-slot-time="{{ slot.slot_time.strftime('%Y-%m-%d %H:%M') }}" onclick="showModal(this)">
+                        <div class="slot-list-date">
+                             {% set wday = ["月", "火", "水", "木", "金", "土", "日"] %}
+                             <span class="date">{{ slot.slot_time.strftime('%m/%d') }}({{ wday[slot.slot_time.weekday()] }})</span>
+                             {% if slot.slot_time.date() == today %}
+                                <span class="today-label">Today</span>
+                             {% endif %}
+                        </div>
+                        <div class="slot-list-details">
+                            <span class="slot-time">{{ slot.slot_time.strftime('%H:%M') }}</span>
+                            <span class="slot-departure departure-{{ slot.departure_point | lower | replace(' ', '-') }}">{{ slot.departure_point }}</span>
+                             <span class="slot-availability">
+                                <i class="fas fa-users"></i> 残り{{ slot.available_slots }}席
+                            </span>
+                        </div>
+                    </div>
                     {% endif %}
                 {% endfor %}
-                {% if not found_slot.value %}
-                    <li class="no-slots">この月には予約可能な送迎がありません。</li>
-                {% endif %}
-            </ul>
+             {% else %}
+                <p>現在、予約可能な枠はありません。</p>
+             {% endif %}
         </div>
     </div>
-{% endblock %} 
+</div>
+
+<!-- 予約モーダル -->
+<div id="reservationModal" class="modal">
+  <div class="modal-content">
+    <span class="close-button" onclick="closeModal()">&times;</span>
+    <h2>予約確認</h2>
+    <p id="modalSlotTime"></p>
+    <form action="{{ url_for('reserve') }}" method="post">
+        <input type="hidden" id="modalSlotId" name="slot_id">
+        <div class="form-group">
+            <label for="userName">名前:</label>
+            <input type="text" id="userName" name="user_name" required>
+        </div>
+        <div class="form-group">
+            <button type="submit">この内容で予約する</button>
+        </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
