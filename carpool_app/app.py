@@ -6,22 +6,18 @@ import calendar
 from whitenoise import WhiteNoise
 
 # --- Flaskアプリケーションの初期化 ---
-# ここで静的ファイルの場所とURLを明示的に定義する
-# これにより、どんな環境でもFlaskがCSSファイルの場所を誤解しなくなる
-app = Flask(__name__,
-            static_folder='static',
-            static_url_path='/static')
+# 静的ファイルの設定は、WhiteNoiseに完全に一任するため、ここではシンプルに初期化
+app = Flask(__name__)
 
 # --- WhiteNoiseの設定 ---
-# Flaskが保証した静的ファイルの配信をWhiteNoiseに担当させる
-# これが最もシンプルで堅牢な設定
-app.wsgi_app = WhiteNoise(app.wsgi_app)
-
-# ベースディレクトリの絶対パスを取得 (DB設定でのみ使用)
-basedir = os.path.abspath(os.path.dirname(__file__))
+# Render公式ドキュメントで推奨されている、最も確実で強力な設定
+# root: ファイルシステム上の静的フォルダの場所を 'static/' と明示
+# prefix: ブラウザがアクセスする際のURLの接頭辞を 'static/' と明示
+app.wsgi_app = WhiteNoise(app.wsgi_app, root="static/", prefix="static/")
 
 # --- データベース設定 ---
-# RenderのPostgreSQLデータベースのURLを環境変数から取得
+# ベースディレクトリの絶対パスを取得
+basedir = os.path.abspath(os.path.dirname(__file__))
 database_url = os.environ.get('DATABASE_URL')
 if database_url:
     # RenderのPostgreSQL URLは 'postgres://' で始まるが、SQLAlchemyは 'postgresql://' を要求するため置換
@@ -35,8 +31,7 @@ app.config['SECRET_KEY'] = 'your_super_secret_key'
 
 db = SQLAlchemy(app)
 
-
-# --- モデル定義 ---
+# --- モデル定義 (変更なし) ---
 class Slot(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     departure_point = db.Column(db.String(50), nullable=False, default='京大発')
@@ -53,7 +48,7 @@ class Reservation(db.Model):
     user_name = db.Column(db.String(100), nullable=False)
     slot_id = db.Column(db.Integer, db.ForeignKey('slot.id'), nullable=False)
 
-# --- ルート定義 ---
+# --- ルート定義 (変更なし) ---
 @app.route('/')
 def index():
     today = datetime.utcnow().date()
