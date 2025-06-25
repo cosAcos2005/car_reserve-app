@@ -3,35 +3,38 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import calendar
-from whitenoise import WhiteNoise # WhiteNoiseをインポート
+from whitenoise import WhiteNoise
 
-# ベースディレクトリの絶対パスを取得
+# --- Flaskアプリケーションの初期化 ---
+# ここで静的ファイルの場所とURLを明示的に定義する
+# これにより、どんな環境でもFlaskがCSSファイルの場所を誤解しなくなる
+app = Flask(__name__,
+            static_folder='static',
+            static_url_path='/static')
+
+# --- WhiteNoiseの設定 ---
+# Flaskが保証した静的ファイルの配信をWhiteNoiseに担当させる
+# これが最もシンプルで堅牢な設定
+app.wsgi_app = WhiteNoise(app.wsgi_app)
+
+# ベースディレクトリの絶対パスを取得 (DB設定でのみ使用)
 basedir = os.path.abspath(os.path.dirname(__file__))
 
-app = Flask(__name__)
-
-# ★★★ WhiteNoiseで静的ファイル(CSS)を配信できるようにする ★★★
-# 'static'フォルダの絶対パスをWhiteNoiseに直接教える
-static_folder_path = os.path.join(basedir, 'static')
-app.wsgi_app = WhiteNoise(app.wsgi_app, root=static_folder_path)
-
-
+# --- データベース設定 ---
 # RenderのPostgreSQLデータベースのURLを環境変数から取得
-# なければ、ローカルのSQLiteをフォールバックとして使用
 database_url = os.environ.get('DATABASE_URL')
 if database_url:
-    # RenderのPostgreSQL URLは 'postgres://' で始まるが、
-    # SQLAlchemyは 'postgresql://' を要求するため置換する
+    # RenderのPostgreSQL URLは 'postgres://' で始まるが、SQLAlchemyは 'postgresql://' を要求するため置換
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url.replace("postgres://", "postgresql://")
 else:
     # ローカル開発用のSQLite設定
-    db_path = os.path.join(basedir, 'carpool.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'carpool.db')
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'your_super_secret_key' # flashメッセージのために必要
+app.config['SECRET_KEY'] = 'your_super_secret_key'
 
 db = SQLAlchemy(app)
+
 
 # --- モデル定義 ---
 class Slot(db.Model):
@@ -57,30 +60,23 @@ def index():
     year = request.args.get('year', default=today.year, type=int)
     month = request.args.get('month', default=today.month, type=int)
 
-    # 月の初日と最終日
     first_day_of_month = datetime(year, month, 1)
     if month == 12:
         last_day_of_month = datetime(year + 1, 1, 1) - timedelta(days=1)
     else:
         last_day_of_month = datetime(year, month + 1, 1) - timedelta(days=1)
 
-    # 表示する月の予約枠を取得
     slots = Slot.query.filter(
         Slot.slot_time >= datetime.combine(first_day_of_month.date(), datetime.min.time()),
         Slot.slot_time <= datetime.combine(last_day_of_month.date(), datetime.max.time())
     ).order_by(Slot.slot_time).all()
 
-    # カレンダー用のデータ構造
     cal = calendar.Calendar()
     month_days = cal.monthdatescalendar(year, month)
 
-    # ナビゲーション用の年月
     prev_month = first_day_of_month - timedelta(days=1)
     next_month = last_day_of_month + timedelta(days=1)
-
-    # スマホ用のリスト表示データ
     list_slots = Slot.query.filter(Slot.slot_time >= datetime.utcnow()).order_by(Slot.slot_time).all()
-
 
     return render_template('index.html',
                            month_days=month_days,
@@ -99,11 +95,9 @@ def index():
 def reserve():
     user_name = request.form.get('user_name')
     slot_id = request.form.get('slot_id')
-
     if not user_name:
         flash('名前を入力してください。', 'error')
         return redirect(url_for('index'))
-
     slot_to_reserve = Slot.query.get(slot_id)
     if slot_to_reserve and slot_to_reserve.available_slots > 0:
         reservation = Reservation(user_name=user_name, slot_id=slot_id)
@@ -112,7 +106,6 @@ def reserve():
         flash(f'{slot_to_reserve.slot_time.strftime("%m月%d日 %H:%M")}の予約が完了しました。', 'success')
     else:
         flash('満席か、予約枠が見つかりませんでした。', 'error')
-
     return redirect(url_for('index'))
 
 @app.route('/my_reservations', methods=['GET', 'POST'])
@@ -133,11 +126,8 @@ def my_reservations():
 @app.route('/cancel_reservation/<int:reservation_id>', methods=['POST'])
 def cancel_reservation(reservation_id):
     reservation_to_delete = Reservation.query.get_or_404(reservation_id)
-
-    # DetachedInstanceErrorを防ぐために、削除前に情報を変数に保存
     user_name = reservation_to_delete.user_name
     slot_time_str = reservation_to_delete.slot.slot_time.strftime('%Y-%m-%d %H:%M')
-
     try:
         db.session.delete(reservation_to_delete)
         db.session.commit()
@@ -145,10 +135,8 @@ def cancel_reservation(reservation_id):
     except Exception as e:
         db.session.rollback()
         flash(f'キャンセル処理中にエラーが発生しました: {e}', 'error')
-
     return redirect(url_for('my_reservations'))
 
-# --- 管理者向けページ ---
 @app.route('/admin')
 def admin():
     today = datetime.utcnow().date()
@@ -159,7 +147,6 @@ def admin():
 def add_slot():
     slot_time_str = request.form.get('slot_time')
     departure_point = request.form.get('departure_point')
-
     if slot_time_str:
         slot_time = datetime.strptime(slot_time_str, '%Y-%m-%dT%H:%M')
         new_slot = Slot(slot_time=slot_time, departure_point=departure_point)
@@ -178,12 +165,10 @@ def delete_slot(slot_id):
     flash('送迎枠が削除されました。', 'success')
     return redirect(url_for('admin'))
 
-# アプリケーションの実行部
 def create_tables():
     with app.app_context():
         db.create_all()
 
 if __name__ == '__main__':
     create_tables()
-    # 開発サーバー起動時のポートを5001に変更
     app.run(debug=True, host='0.0.0.0', port=5001)
