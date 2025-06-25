@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+
+{% block title %}予約の確認{% endblock %}
+
+{% block content %}
+<h2>予約の確認</h2>
+<form method="post">
+    <label for="user_name">予約した時のお名前を入力してください:</label>
+    <input type="text" id="user_name" name="user_name" value="{{ searched_name or '' }}" required>
+    <button type="submit">予約を検索</button>
+</form>
+
+{% if searched_name %}
+    <h3>「{{ searched_name }}」さんの予約一覧</h3>
+    {% if reservations %}
+        <ul class="reservation-list">
+            {% for reservation in reservations %}
+            <li>
+                <div class="reservation-details">
+                    <span class="departure-tag">{{ reservation.slot.departure_point }}</span>
+                    <span class="slot-time">{{ reservation.slot.slot_time.strftime('%Y年%m月%d日 %H:%M') }}</span>
+                </div>
+                <form action="{{ url_for('cancel_reservation', reservation_id=reservation.id) }}" method="post" onsubmit="return confirm('この予約を本当にキャンセルしますか？');">
+                    <button type="submit" class="cancel-btn">キャンセル</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>予約は見つかりませんでした。</p>
+    {% endif %}
+{% endif %}
+{% endblock %} 
