@@ -11,7 +11,9 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 app = Flask(__name__)
 
 # ★★★ WhiteNoiseで静的ファイル(CSS)を配信できるようにする ★★★
-app.wsgi_app = WhiteNoise(app.wsgi_app)
+# 'static'フォルダの絶対パスをWhiteNoiseに直接教える
+static_folder_path = os.path.join(basedir, 'static')
+app.wsgi_app = WhiteNoise(app.wsgi_app, root=static_folder_path)
 
 
 # RenderのPostgreSQLデータベースのURLを環境変数から取得
